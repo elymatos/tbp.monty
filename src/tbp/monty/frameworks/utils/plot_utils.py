@@ -96,7 +96,7 @@ def plot_graph(
         ax.set_xlim([0, ax_lim])
         ax.set_ylim([ax_lim, 0])
     else:
-        ax.set_aspect("equal")
+        ax.set_aspect("auto")
     ax.view_init(rotation, 180)
     fig.tight_layout()
     return fig

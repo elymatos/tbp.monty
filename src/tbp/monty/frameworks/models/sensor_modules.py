@@ -726,3 +726,138 @@ class FeatureChangeSM(HabitatDistantPatchSM, NoiseMixin):
                         logging.debug(f"new point because of {feature}")
                         return True
         return False
+
+class FN4DistantPatchSM(DetailedLoggingSM, NoiseMixin):
+    """Sensor Module that turns Habitat camera obs into features at locations.
+
+    Takes in camera rgba and depth input and calculates locations from this.
+    It also extracts features which are currently: on_object, rgba, point_normal,
+    curvature.
+    """
+
+    def __init__(
+        self,
+        sensor_module_id,
+        features,
+        save_raw_obs=False,
+        pc1_is_pc2_threshold=10,
+        noise_params=None,
+        process_all_obs=False,
+    ):
+        """Initialize Sensor Module.
+
+        Args:
+            sensor_module_id: Name of sensor module.
+            features: Which features to extract. In [on_object, rgba, point_normal,
+                principal_curvatures, curvature_directions, gaussian_curvature,
+                mean_curvature]
+            save_raw_obs: Whether to save raw sensory input for logging.
+            pc1_is_pc2_threshold: ?. Defaults to 10.
+            noise_params: Dictionary of noise amount for each feature.
+            process_all_obs: Enable explicitly to enforce that off-observations are
+                still processed by LMs, primarily for the purpose of unit testing.
+                TODO: remove?
+
+        Note:
+            When using feature at location matching with graphs, point_normal and
+            on_object needs to be in the list of features.
+
+        Note:
+            gaussian_curvature and mean_curvature should be used together to contain
+            the same information as principal_curvatures.
+        """
+        super(FN4DistantPatchSM, self).__init__(
+            sensor_module_id, save_raw_obs, pc1_is_pc2_threshold
+        )
+        NoiseMixin.__init__(self, noise_params)
+        possible_features = [
+            "on_object",
+            "object_coverage",
+            "min_depth",
+            "mean_depth",
+            "rgba",
+            "hsv",
+            "pose_vectors",
+            "principal_curvatures",
+            "principal_curvatures_log",
+            "pose_fully_defined",
+            "gaussian_curvature",
+            "mean_curvature",
+            "gaussian_curvature_sc",
+            "mean_curvature_sc",
+            "curvature_for_TM",
+            "coords_for_TM",
+        ]
+        for feature in features:
+           assert (
+               feature in possible_features
+           ), f"{feature} not part of {possible_features}"
+
+        self.features = features
+        # self.features = []
+        self.processed_obs = []
+        self.states = []
+        # TODO: give more descriptive & distinct names
+        self.on_object_obs_only = True
+        self.process_all_obs = process_all_obs
+
+    def pre_episode(self):
+        """Reset buffer and is_exploring flag."""
+        super().pre_episode()
+        self.processed_obs = []
+        self.states = []
+
+    def update_state(self, state):
+        """Update information about the sensors location and rotation."""
+        agent_position = state["position"]
+        sensor_position = state["sensors"][self.sensor_module_id + ".rgba"]["position"]
+        if "motor_only_step" in state.keys():
+            self.motor_only_step = state["motor_only_step"]
+
+        agent_rotation = state["rotation"]
+        sensor_rotation = state["sensors"][self.sensor_module_id + ".rgba"]["rotation"]
+        self.state = {
+            "location": agent_position + sensor_position,
+            "rotation": agent_rotation * sensor_rotation,
+        }
+
+    def state_dict(self):
+        """Return state_dict."""
+        assert len(self.sm_properties) == len(
+            self.raw_observations
+        ), "Should have a SM value for every set of observations."
+
+        return dict(
+            raw_observations=self.raw_observations,
+            processed_observations=self.processed_obs,
+            sm_properties=self.sm_properties,
+            # sensor_states=self.states, # pickle problem with magnum
+        )
+
+    def step(self, data):
+        """Turn raw observations into dict of features at location.
+
+        Args:
+            data: Raw observations.
+
+        Returns:
+            State with features and morphological features. Noise may be added.
+            use_state flag may be set.
+        """
+        super().step(data)  # for logging
+        observed_state = self.observations_to_comunication_protocol(
+            data, on_object_only=self.on_object_obs_only
+        )
+
+        if self.noise_params is not None and observed_state.use_state:
+            observed_state = self.add_noise_to_sensor_data(observed_state)
+        if self.process_all_obs:
+            observed_state.use_state = True
+
+        if self.motor_only_step:
+            # Set interesting-features flag to False, as should not be passed to
+            # LM, even in e.g. pre-training experiments that might otherwise do so
+            observed_state.use_state = False
+
+        return observed_state
+

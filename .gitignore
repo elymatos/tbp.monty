@@ -137,3 +137,6 @@ Session.vim
 
 # rsync
 .rsyncignore.local
+
+results/*
+data/habitat/*

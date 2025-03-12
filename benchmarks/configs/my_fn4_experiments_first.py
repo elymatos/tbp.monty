@@ -6,6 +6,7 @@ from benchmarks.configs.names import MyExperiments
 from tbp.monty.frameworks.config_utils.config_args import (
     MontyArgs,
     MotorSystemConfigCurvatureInformedSurface,
+    SingleCameraMontyConfig,
     PatchAndViewMontyConfig,
     PretrainLoggingConfig,
     get_cube_face_and_corner_views_rotations,
@@ -23,6 +24,7 @@ from tbp.monty.frameworks.models.graph_matching import GraphLM
 from tbp.monty.frameworks.models.sensor_modules import (
     DetailedLoggingSM,
     HabitatSurfacePatchSM,
+    FN4DistantPatchSM
 )
 from tbp.monty.simulators.habitat.configs import (
     SurfaceViewFinderMountHabitatDatasetArgs,
@@ -36,7 +38,7 @@ Basic setup
 project_dir = os.path.expanduser("~/tbp/results/monty/projects")
 
 # Specify a name for the model.
-model_name = "surf_agent_1lm_2obj"
+model_name = "fn4_first_exp"
 
 """
 Training
@@ -56,7 +58,7 @@ my_experiment = dict(
     # with object and pose labels for supervised pretraining.
     experiment_class=MontySupervisedObjectPretrainingExperiment,
     experiment_args=ExperimentArgs(
-        n_train_epochs=len(train_rotations),
+        n_train_epochs=6,
         do_eval=False,
     ),
     # Specify logging config.
@@ -67,33 +69,15 @@ my_experiment = dict(
     ),
     # Specify the Monty config.
     monty_config=PatchAndViewMontyConfig(
-        monty_args=MontyArgs(num_exploratory_steps=500),
+        monty_args=MontyArgs(num_exploratory_steps=10),
         # sensory module configs: one surface patch for training (sensor_module_0),
         # and one view-finder for initializing each episode and logging
         # (sensor_module_1).
         sensor_module_configs=dict(
             sensor_module_0=dict(
-                sensor_module_class=HabitatSurfacePatchSM,
+                sensor_module_class=FN4DistantPatchSM,
                 sensor_module_args=dict(
-                    sensor_module_id="patch",
-                    # a list of features that the SM will extract and send to the LM
-                    features=[
-                        "pose_vectors",
-                        "pose_fully_defined",
-                        "on_object",
-                        "object_coverage",
-                        "rgba",
-                        "hsv",
-                        "min_depth",
-                        "mean_depth",
-                        "principal_curvatures",
-                        "principal_curvatures_log",
-                        "gaussian_curvature",
-                        "mean_curvature",
-                        "gaussian_curvature_sc",
-                        "mean_curvature_sc",
-                    ],
-                    save_raw_obs=False,
+                    sensor_module_id="patch"
                 ),
             ),
             sensor_module_1=dict(
@@ -104,15 +88,21 @@ my_experiment = dict(
                 ),
             ),
         ),
+
         # learning module config: 1 graph learning module.
         learning_module_configs=dict(
-            learning_module_0=dict(
+            learning_module_1=dict(
                 learning_module_class=GraphLM,
                 learning_module_args=dict(),  # Use default LM args
             )
         ),
+        sm_to_agent_dict = dict(
+            patch="agent_id_0",
+            view_finder="agent_id_0",
+        )
+
         # Motor system config: class specific to surface agent.
-        motor_system_config=MotorSystemConfigCurvatureInformedSurface(),
+        # motor_system_config=MotorSystemConfigCurvatureInformedSurface(),
     ),
     # Set up the environment and agent
     dataset_class=ED.EnvironmentDataset,
@@ -134,4 +124,3 @@ experiments = MyExperiments(
     my_experiment=my_experiment
 )
 CONFIGS = asdict(experiments)
-
