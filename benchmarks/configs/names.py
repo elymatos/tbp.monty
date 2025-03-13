@@ -89,13 +89,14 @@ NAMES.extend(field.name for field in fields(YcbExperiments))
 @dataclass
 class MyExperiments:
     # Add your experiment names here
-    #first_experiment: dict
+    first_experiment: dict
     #surf_agent_2obj_train: dict
     #surf_agent_2obj_eval: dict
     #dist_agent_5lm_2obj_train: dict
     #dist_agent_5lm_2obj_eval: dict
     #fn4_first_exp: dict
     my_experiment: dict
+    two_d_experiment: dict
 
 
 NAMES.extend(field.name for field in fields(MyExperiments))

@@ -437,6 +437,7 @@ class HabitatDistantPatchSM(DetailedLoggingSM, NoiseMixin):
         pc1_is_pc2_threshold=10,
         noise_params=None,
         process_all_obs=False,
+        motor_only_step=False,
     ):
         """Initialize Sensor Module.
 
@@ -493,6 +494,7 @@ class HabitatDistantPatchSM(DetailedLoggingSM, NoiseMixin):
         # TODO: give more descriptive & distinct names
         self.on_object_obs_only = True
         self.process_all_obs = process_all_obs
+        self.motor_only_step = motor_only_step
 
     def pre_episode(self):
         """Reset buffer and is_exploring flag."""

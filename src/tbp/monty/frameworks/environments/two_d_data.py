@@ -97,7 +97,7 @@ class OmniglotEnvironment(EmbodiedEnvironment):
         #      interface and how the class hierarchy is defined and used.
         raise NotImplementedError("OmniglotEnvironment does not support adding objects")
 
-    def step(self, _action, amount):
+    def step(self, _action, amount = 1):
         """Retrieve the next observation.
 
         Since the omniglot dataset includes stroke information (the order in which
